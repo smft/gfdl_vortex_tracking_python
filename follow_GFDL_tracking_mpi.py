@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+"""author : Qi Zhang """
+#######"""NJU"""########
+
 import warnings
 import pymongo
 import string
