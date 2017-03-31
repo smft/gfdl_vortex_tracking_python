@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+###author : Qi Zhang ###
+#######"""NJU"""########
+
 file_path=/pandisk/2013_result/ctl/
 chmod u+x follow_GFDL_tracking_mpi.py
 sec_st_time=`date -d '2013-01-01 00:00:00 utc' +%s`
