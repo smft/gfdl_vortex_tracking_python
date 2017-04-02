@@ -3,6 +3,8 @@
 """author : Qi Zhang """
 #######"""NJU"""########
 
+#!/usr/bin/env python
+
 import warnings
 import pymongo
 import string
@@ -84,8 +86,15 @@ comm_rank=comm.Get_rank()
 comm_size=comm.Get_size()
 if comm_rank==0:
     warnings.filterwarnings("ignore")
-    name=raw_input()
-    date=raw_input()
+    bwp_file=raw_input()
+    path=raw_input()
+    rear=raw_input()
+    obs_raw=[cell.split(' ') for cell in bwp_file.split(',')]
+    name=path+'/wrfout_d01_'+obs_raw[2][-1][:4]+'-'+obs_raw[2][-1][4:6]+'-'+\
+                obs_raw[2][-1][6:8]+'_'+obs_raw[2][-1][8:]+rear
+    date=obs_raw[2][-1]
+    obs_lat=string.atof(obs_raw[6][-1][:-1])/10
+    obs_lon=string.atof(obs_raw[7][-1][:-1])/10
 else:
     warnings.filterwarnings("ignore")
     name=None
@@ -98,7 +107,6 @@ if comm_rank==0:
     xland=flag.variables['XLAND'][0,:,:]
     lat=flag.variables['XLAT'][0,:,:]
     lon=flag.variables['XLONG'][0,:,:]
-    dbz=np.max(flag.variables['REFL_10CM'][0,:,:,:],axis=0)
     raw_loc=step_1(mslp)
     vor10=cal_voricity(u10,v10)
     max_vor10=ndimage.filters.maximum_filter(vor10,size=12)
@@ -141,28 +149,10 @@ if comm_rank==0:
                 np.min(np.sqrt((loc_all[4][:,0]-cell[0])**2+(loc_all[4][:,1]-cell[1])**2))]
         wind=np.sqrt(u10**2+v10**2)
         wind_max=np.max(wind[cell[0]-6:cell[0]+6,cell[1]-6:cell[1]+6])
-        slp_min=np.min(mslp[cell[0]-6:cell[0]+6,cell[1]-6:cell[1]+6])
-        if all(np.asarray(dist)<6.5) and np.max(dbz[cell[0]-6:cell[0]+6,cell[1]-6:cell[1]+6])>=0 and \
-            4<lat[cell[0],cell[1]]<40 and 100<lon[cell[0],cell[1]]<150 and xland[cell[0],cell[1]]==2 and \
-            wind_max>10:
-            possible_loc+=[[lat[cell[0],cell[1]],lon[cell[0],cell[1]]]]
-            print date,lat[cell[0],cell[1]],lon[cell[0],cell[1]],wind_max,slp_min/100
-    m=Basemap(llcrnrlon=100,llcrnrlat=4,urcrnrlon=150,urcrnrlat=40,projection='mill',resolution='h')
-    parallels=np.arange(round(10,1),round(50,1),5)
-    m.drawparallels(parallels,labels=[1,0,0,0],fontsize=12)
-    meridians=np.arange(round(70,1),round(180,1),5)
-    m.drawmeridians(meridians,labels=[0,0,0,1],fontsize=12)
-    m.drawcountries(linewidth=0.5,color='k')
-    m.drawcoastlines()
-    x,y=m(lon,lat)
-    dbz[dbz<=0]=np.nan
-    cs=m.scatter(x,y,25,c=dbz,cmap='jet',edgecolors='face')
-    cbar=m.colorbar(cs,location='right',pad="5%")
-    try:
-        mod_loc=np.asarray(possible_loc)
-        x,y=m(mod_loc[:,1],mod_loc[:,0])
-        m.scatter(x,y,70,c='black')
-    except:
-        pass
-    plt.title(date)
-    plt.savefig(date+'.png')
+        slp_min=np.min(mslp[cell[0]-6:cell[0]+6,cell[1]-6:cell[1]+6])/100
+        if all(np.asarray(dist)<6.5):
+            possible_loc+=[[lat[cell[0],cell[1]],lon[cell[0],cell[1]],wind_max,slp_min]]
+    distance=np.sqrt((np.asarray(possible_loc)[:,0]-obs_lat)**2+\
+                        (np.asarray(possible_loc)[:,1]-obs_lon)**2)
+    idx=np.unravel_index(distance.argmin(),distance.shape)[0]
+    print date,possible_loc[idx][0],possible_loc[idx][1],possible_loc[idx][2],possible_loc[idx][3]
